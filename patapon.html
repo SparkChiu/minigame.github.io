@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>猪突猛进对对碰</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a12;color:#fff;font-family:Arial,sans-serif;overflow:hidden;user-select:none;}
+
+#backBtn{
+  position:fixed;top:10px;left:10px;z-index:9999;
+  color:#00ff84;font-size:18px;font-weight:bold;
+  text-decoration:none;background:rgba(0,0,0,0.6);
+  padding:6px 12px;border-radius:8px;border:1px solid #00ff84;
+}
+
+#goldBar{
+  position:fixed;top:10px;right:10px;z-index:9999;
+  color:#ffd000;font-size:18px;font-weight:bold;
+  background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:8px;
+}
+
+/* 排行榜按钮 */
+#rankBtn{
+  position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:9999;
+  color:#fff;font-size:16px;font-weight:bold;
+  background:rgba(255,190,0,0.6);padding:6px 12px;border-radius:8px;
+  border:none;cursor:pointer;
+}
+
+/* 关卡显示 - 贴战斗区域上边缘 */
+#levelBar{
+  position:fixed;top:calc(50% - 27vh);left:50%;transform:translateX(-50%);z-index:9999;
+  color:#fff;font-size:18px;font-weight:bold;
+  background:rgba(255,190,0,0.8);padding:6px 14px;border-radius:8px;
+}
+
+/* 排行榜面板 */
+#rankPanel{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  background:rgba(0,0,0,0.9);z-index:10000;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+}
+#rankPanel h2{color:#ffd000;margin-bottom:10px;}
+#rankList{
+  width:90%;max-width:400px;max-height:60vh;overflow-y:auto;
+}
+.rank-item{
+  padding:10px;margin:6px;background:#1a1a2e;border-radius:8px;
+  font-size:16px;text-align:center;
+}
+#closeRank{
+  margin-top:16px;padding:8px 20px;background:#ff4444;color:#fff;
+  border:none;border-radius:8px;font-size:16px;cursor:pointer;
+}
+
+#game{width:100vw;height:100vh;position:relative;background:linear-gradient(to bottom,#111,#222);}
+
+.team-area{
+  position:fixed;left:50%;transform:translateX(-50%);
+  display:flex;gap:10px;padding:10px;
+  width:95%;max-width:700px;
+  flex-wrap:wrap; /* 自动换行，禁用滚动条 */
+  justify-content:center;
+}
+#playerTeam{bottom:20px;}
+#enemyTeam{top:20px;display:none;} /* 隐藏顶部敌人信息 */
+
+/* 加宽动物卡牌，防止文字换行 */
+.creature{
+  width:85px;min-width:85px;height:auto;background:#1a1a2e;
+  border:2px solid #888;border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:32px;position:relative;padding:6px;
+  transition:0.2s;
+}
+.creature.alive{border-color:#00ff84;}
+.creature.dead{border-color:#444;opacity:0.7;}
+.creature .level{
+  position:absolute;top:-2px;left:0;right:0;text-align:center;
+  font-size:12px;color:#ffd000;font-weight:bold;
+}
+.creature .stat{
+  font-size:12px;color:#fff;background:#0005;padding:2px 4px;border-radius:4px;margin-top:2px;width:90%;text-align:center;
+}
+.creature .btn{
+  font-size:11px;padding:2px 4px;margin:1px;border-radius:4px;border:none;
+  background:#222;color:#fff;cursor:pointer;width:100%;
+}
+.creature .btn.up{background:#006633;}
+.creature .btn.up:disabled{background:#444;color:#888;cursor:not-allowed;}
+.creature .btn.rev{background:#006688;}
+.creature .btn.rev:disabled{background:#444;color:#888;cursor:not-allowed;}
+.creature .btn.bur{background:#880000;}
+
+#battleZone{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:80vw;height:50vh;max-width:500px;
+  background:rgba(0,0,0,0.3);border:1px solid #444;
+  border-radius:20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-around;
+  padding:20px 0;
+}
+
+.battle-unit{
+  width:100px;height:100px;font-size:48px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;transition:all 0.3s ease;
+}
+.battle-unit .hp-bar{
+  position:absolute;top:-10px;left:0;right:0;height:6px;
+  background:#444;border-radius:3px;overflow:hidden;
+}
+.hp-fill{height:100%;background:#00ff84;transition:width 0.3s;}
+
+/* BOSS标签 - 放大字体 + 远离血条 */
+.boss-label{
+  position:absolute;top:-32px;left:50%;transform:translateX(-50%);
+  background:#ff4444;color:#fff;font-size:18px;font-weight:bold;
+  padding:4px 10px;border-radius:6px;
+}
+
+/* BOSS预警闪烁动画 */
+@keyframes bossFlash {
+  0%{opacity:0;transform:translateX(-50%) scale(0.8);}
+  50%{opacity:1;transform:translateX(-50%) scale(1.2);}
+  100%{opacity:0;transform:translateX(-50%) scale(0.8);}
+}
+.boss-flash{
+  position:absolute;top:-32px;left:50%;transform:translateX(-50%);
+  color:#ff4444;font-size:24px;font-weight:bold;
+  text-shadow:0 0 12px #ff0000;
+  animation:bossFlash 0.5s ease 3;
+  z-index:10;
+}
+
+.battle-stat{
+  position:absolute;bottom:-25px;font-size:12px;color:#fff;
+  background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px;white-space:nowrap;
+}
+
+@keyframes hitShake {
+  0%{transform:translate(-50%,-50%);}
+  50%{transform:translate(-50%,-52%) scale(1.05);}
+  100%{transform:translate(-50%,-50%);}
+}
+.hit-shake{ animation:hitShake 0.2s ease; }
+
+@keyframes enemyDie {0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0);}}
+.enemy-die{ animation:enemyDie 0.4s forwards; }
+
+@keyframes enemySpawn {0%{opacity:0;transform:scale(0);}100%{opacity:1;transform:scale(1);}}
+.enemy-spawn{ animation:enemySpawn 0.4s forwards; }
+
+.float-text{
+  position:absolute;z-index:10;color:#ff0;font-weight:bold;
+  font-size:20px;animation:float 0.6s forwards;
+}
+@keyframes float{0%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-40px);}}
+</style>
+</head>
+
+<body>
+<a id="backBtn" href="index.html">← 返回</a>
+<button id="rankBtn" onclick="openRank()">🏆 排行榜</button>
+<div id="levelBar">关卡：1-1</div>
+<div id="goldBar">💰 金币: 0</div>
+
+<!-- 排行榜界面 -->
+<div id="rankPanel">
+  <h2>💰 金币排行榜</h2>
+  <div id="rankList"></div>
+  <button id="closeRank" onclick="closeRank()">关闭</button>
+</div>
+
+<div id="game">
+  <div id="enemyTeam" class="team-area"></div>
+
+  <div id="battleZone">
+    <div id="enemyBattle" class="battle-unit">
+      <div class="hp-bar"><div class="hp-fill"></div></div>
+      <div class="battle-stat"></div>
+    </div>
+    <div id="playerBattle" class="battle-unit">
+      <div class="hp-bar"><div class="hp-fill"></div></div>
+      <div class="battle-stat"></div>
+    </div>
+  </div>
+
+  <div id="playerTeam" class="team-area"></div>
+</div>
+
+<script>
+// ======================
+// 游戏数据（全新关卡系统）
+// ======================
+let playerTeam = [
+  {emoji:'🐹', atk:1, hp:3, maxHp:3, level:1},
+  {emoji:'🐹', atk:1, hp:3, maxHp:3, level:1},
+  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1},
+  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1},
+  {emoji:'🐹', atk:5, hp:9, maxHp:9, level:1},
+];
+
+// 关卡核心数据
+let levelData = {
+  currentLevel: 1,    // 当前大关卡
+  currentWave: 1,     // 当前波数（1-5）
+  maxWave: 5,         // 每关5只怪
+  minionAtk: 1,       // 本关小怪攻击力
+  minionHp: 2,        // 本关小怪血量
+  isBoss: false       // 是否是BOSS
+};
+
+let enemy = {atk:1, hp:2, maxHp:2, emoji:'👿', isBoss:false};
+let gold = 0;
+let isAttacking = false;
+let isBossLoading = false; // BOSS加载中 → 禁止攻击
+let currentBattleUnitIndex = -1;
+
+// ======================
+// DOM
+// ======================
+const playerTeamEl = document.getElementById('playerTeam');
+const enemyTeamEl = document.getElementById('enemyTeam');
+const playerBattle = document.getElementById('playerBattle');
+const enemyBattle = document.getElementById('enemyBattle');
+const goldBar = document.getElementById('goldBar');
+const levelBar = document.getElementById('levelBar');
+const battleZone = document.getElementById('battleZone');
+const rankPanel = document.getElementById('rankPanel');
+const rankList = document.getElementById('rankList');
+
+// 超大量敌人图标库
+const enemyEmojis = [
+  '👿','🐗','🐻','🐺','🦍','🐊','🦖','🦕','🐲','👹',
+  '🦁','🐯','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🐤',
+  '🐥','🦊','🦝','🐑','🐐','🐪','🐫','🦙','🦒','🐘',
+  '🦏','🦛','🐭','🐹','🐰','🐿️','🦎','🐢','🐡','🐠',
+  '🐬','🦈','🐳','🐋','🦀','🦞','🦐'
+];
+// BOSS专属图标
+const bossEmojis = ['👹','🐲','🦖','🦕','🐉','👺'];
+
+// ======================
+// 排行榜功能
+// ======================
+function saveRank(){
+  let ranks = JSON.parse(localStorage.getItem('pigRank')) || [];
+  ranks.push(gold);
+  ranks = [...new Set(ranks)].sort((a,b)=>b-a).slice(0,10);
+  localStorage.setItem('pigRank', JSON.stringify(ranks));
+}
+
+function openRank(){
+  saveRank();
+  let ranks = JSON.parse(localStorage.getItem('pigRank')) || [];
+  rankList.innerHTML = '';
+  ranks.forEach((g,i)=>{
+    const div = document.createElement('div');
+    div.className='rank-item';
+    div.innerHTML = `第${i+1}名：💰${g} 金币`;
+    rankList.appendChild(div);
+  });
+  rankPanel.style.display = 'flex';
+}
+
+function closeRank(){
+  rankPanel.style.display = 'none';
+}
+
+// ======================
+// 初始化 & 关卡显示
+// ======================
+startGame();
+function startGame(){ 
+  updateLevelDisplay();
+  renderAll();
+}
+
+// 更新关卡文字：1-1 格式
+function updateLevelDisplay(){
+  levelBar.textContent = `关卡：${levelData.currentLevel}-${levelData.currentWave}`;
+}
+
+function renderAll(){ 
+  renderTeams(); 
+  renderEnemy(); 
+  updateGold(); 
+}
+function updateGold(){ goldBar.textContent = `💰 金币: ${gold}`; }
+
+// ======================
+// 渲染队伍
+// ======================
+function renderTeams(){
+  playerTeamEl.innerHTML = '';
+  playerTeam.forEach((unit, idx) => {
+    const div = document.createElement('div');
+    const alive = unit.hp > 0;
+    div.className = 'creature ' + (alive ? 'alive' : 'dead');
+    
+    let btns = '';
+    if(alive){
+      const cost = unit.atk;
+      const canUpgrade = gold >= cost;
+      btns = `
+        <button class="btn up" onclick="upgrade(${idx});event.stopPropagation();" ${!canUpgrade ? 'disabled' : ''}>升级</button>
+        <div style="font-size:11px;color:#ffd000;margin-top:2px;">💰${cost}</div>
+      `;
+    }else{
+      const cost = unit.maxHp;
+      const canRevive = gold >= cost;
+      btns = `
+        <button class="btn rev" onclick="revive(${idx});event.stopPropagation();" ${!canRevive ? 'disabled' : ''}>复活</button>
+        <div style="font-size:11px;color:#ffd000;margin-top:2px;">💰${cost}</div>
+        <button class="btn bur" onclick="bury(${idx});event.stopPropagation();">掩埋</button>
+      `;
+    }
+
+    div.innerHTML = `
+      <div class="level">Lv${unit.level}</div>
+      ${unit.emoji}
+      <div class="stat">🗡️${unit.atk}</div>
+      <div class="stat">❤️${unit.hp}/${unit.maxHp}</div>
+      ${btns}
+    `;
+    div.onclick = () => alive && playerAttack(idx);
+    playerTeamEl.appendChild(div);
+  });
+
+  // 顶部敌人区域永久隐藏
+  enemyTeamEl.innerHTML = '';
+}
+
+// 渲染战斗区敌人（带BOSS标签）
+function renderEnemy(){
+  const bossTag = enemy.isBoss ? '<div class="boss-label">BOSS</div>' : '';
+  enemyBattle.innerHTML = `
+    ${bossTag}
+    ${enemy.emoji}
+    <div class="hp-bar"><div class="hp-fill" style="width:${enemy.hp/enemy.maxHp*100}%"></div></div>
+    <div class="battle-stat">🗡️${enemy.atk} ❤️${enemy.hp}</div>
+  `;
+}
+
+function renderCurrentBattleUnit(){
+  if(currentBattleUnitIndex <0 || currentBattleUnitIndex >= playerTeam.length) return;
+  const u = playerTeam[currentBattleUnitIndex];
+  playerBattle.innerHTML = `
+    ${u.emoji}
+    <div class="hp-bar"><div class="hp-fill" style="width:${u.hp/u.maxHp*100}%"></div></div>
+    <div class="battle-stat">🗡️${u.atk} ❤️${u.hp}</div>
+  `;
+  // 动物死亡时 彻底清空（隐藏血条+状态）
+  if(u.hp <=0){
+    playerBattle.innerHTML = ``;
+    currentBattleUnitIndex = -1;
+  }
+}
+
+// ======================
+// 攻击逻辑（增加BOSS加载禁止判断）
+// ======================
+function playerAttack(index){
+  // ✅ 核心：BOSS加载中 → 完全禁止攻击
+  if(isAttacking || isBossLoading) return;
+  const u = playerTeam[index];
+  if(!u || u.hp <=0) return;
+
+  isAttacking = true;
+  currentBattleUnitIndex = index;
+  renderCurrentBattleUnit();
+
+  setTimeout(()=>{ playerBattle.style.transform = 'translateY(-120px)'; },50);
+
+  setTimeout(()=>{
+    battleZone.classList.add('hit-shake');
+    setTimeout(()=>battleZone.classList.remove('hit-shake'),200);
+
+    u.hp -= enemy.atk;
+    enemy.hp -= u.atk;
+
+    showFloat(u.atk, enemyBattle);
+    renderTeams(); renderEnemy(); renderCurrentBattleUnit();
+
+    if(enemy.hp <=0){
+      enemyBattle.classList.add('enemy-die');
+      setTimeout(()=>{
+        gold += enemy.maxHp;
+        saveRank();
+        playerTeam.push({emoji:enemy.emoji, atk:enemy.atk, hp:enemy.maxHp, maxHp:enemy.maxHp, level:1});
+        enemyBattle.classList.remove('enemy-die');
+        
+        // ✅ 先清空敌人，再走BOSS流程
+        enemy = {atk:0, hp:0, maxHp:0, emoji:'', isBoss:false};
+        renderEnemy();
+        
+        // ✅ 进入下一波（自动判断是否BOSS）
+        nextMonster();
+      },400);
+    }
+
+    playerBattle.style.transform = '';
+    setTimeout(()=>{ isAttacking = false; renderCurrentBattleUnit(); },300);
+  },300);
+}
+
+// ======================
+// ✅ 核心：下一只怪物逻辑（完美流程）
+// ======================
+function nextMonster(){
+  levelData.currentWave++;
+
+  // 判断是否通关
+  if(levelData.currentWave > levelData.maxWave){
+    levelData.currentLevel++;
+    levelData.currentWave = 1;
+    generateNewMinionStats();
+  }
+
+  levelData.isBoss = (levelData.currentWave === levelData.maxWave);
+  updateLevelDisplay();
+
+  // ✅ 如果是BOSS：开启禁止攻击 + 闪烁 + 刷新
+  if(levelData.isBoss){
+    isBossLoading = true; // 玩家无法攻击
+    
+    const flash = document.createElement('div');
+    flash.className = 'boss-flash';
+    flash.textContent = 'BOSS';
+    enemyBattle.appendChild(flash);
+    
+    setTimeout(() => {
+      flash.remove();
+      spawnCurrentMonster(); // 生成BOSS
+      renderAll();
+      isBossLoading = false; // 恢复攻击
+    }, 1500);
+  } else {
+    spawnCurrentMonster();
+    renderAll();
+  }
+}
+
+// 生成新一关的小怪属性
+function generateNewMinionStats(){
+  const rAtk = Math.random() * 100;
+  const rHp = Math.random() * 100;
+  
+  let atk = levelData.minionAtk;
+  let hp = levelData.minionHp;
+
+  if(rAtk < 50) atk +=1;
+  else if(rAtk <70) atk +=2;
+  else if(rAtk <80) atk = Math.floor(atk *1.5);
+
+  if(rHp <50) hp +=1;
+  else if(rHp <70) hp +=2;
+  else if(rHp <80) hp = Math.floor(hp *1.5);
+
+  levelData.minionAtk = atk;
+  levelData.minionHp = hp;
+}
+
+// 生成当前怪物（BOSS = 小怪3~5倍，绝对更强）
+function spawnCurrentMonster(){
+  const isBoss = levelData.isBoss;
+  let atk, hp, emoji;
+
+  if(isBoss){
+    const rate = 3 + Math.random() * 2; 
+    atk = Math.floor(levelData.minionAtk * rate);
+    hp = Math.floor(levelData.minionHp * rate);
+    emoji = bossEmojis[Math.floor(Math.random()*bossEmojis.length)];
+  }else{
+    atk = levelData.minionAtk;
+    hp = levelData.minionHp;
+    emoji = enemyEmojis[Math.floor(Math.random()*enemyEmojis.length)];
+  }
+
+  enemy = { atk, hp, maxHp:hp, emoji, isBoss };
+  enemyBattle.classList.add('enemy-spawn');
+  setTimeout(()=>enemyBattle.classList.remove('enemy-spawn'),400);
+}
+
+// ======================
+// 升级 / 复活 / 掩埋
+// ======================
+function upgrade(index){
+  const u = playerTeam[index];
+  const cost = u.atk;
+  if(gold >= cost){
+    gold -= cost;
+    u.atk *= 2;
+    u.level +=1;
+    renderAll();
+  }
+}
+
+function revive(index){
+  const u = playerTeam[index];
+  const cost = u.maxHp;
+  if(gold >= cost){
+    gold -= cost;
+    u.hp = u.maxHp;
+    renderAll();
+  }
+}
+
+function bury(index){
+  if(currentBattleUnitIndex === index) currentBattleUnitIndex = -1;
+  playerTeam.splice(index,1);
+  gold += 1;
+  renderAll();
+}
+
+// ======================
+// 浮动伤害
+// ======================
+function showFloat(dmg, el){
+  const t = document.createElement('div');
+  t.className = 'float-text';
+  t.textContent = '-' + dmg;
+  el.appendChild(t);
+  setTimeout(()=>t.remove(),600);
+}
+</script>
+</body>
+</html>
