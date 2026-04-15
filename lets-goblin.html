@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>疯狂麦克斯 🚛 终极版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:#000;color:#fff;font-family:Arial,sans-serif;
+  overflow:hidden;user-select:none;width:100vw;height:100vh;
+}
+@keyframes float{0%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-40px);}}
+@keyframes hit{0%{transform:scale(1);}50%{transform:scale(.9);}100%{transform:scale(1);}}
+@keyframes bossWarning{0%{transform:scale(1);}50%{transform:scale(1.1);}100%{transform:scale(1);}}
+@keyframes shieldPulse{0%{box-shadow:0 0 10px #0ff;}50%{box-shadow:0 0 20px #0ff;}100%{box-shadow:0 0 10px #0ff;}}
+@keyframes boostPulse{0%{box-shadow:0 0 10px #ff0;}50%{box-shadow:0 0 20px #ff0;}100%{box-shadow:0 0 10px #ff0}}
+@keyframes ragePulse{0%{box-shadow:0 0 10px #f44;}50%{box-shadow:0 0 20px #f44;}100%{box-shadow:0 0 10px #f44}}
+@keyframes truckHurt{0%{filter:brightness(1);}50%{filter:brightness(0.5) sepia(1) hue-rotate(-50deg);}100%{filter:brightness(1);}}
+
+#topUI{position:fixed;top:0;left:0;right:0;z-index:9999;padding:8px;display:flex;justify-content:space-between;align-items:flex-start;}
+#version{background:#0006;padding:4px 8px;border-radius:6px;color:#0ff;font-size:12px;}
+#guideBtn{background:#ffaa0099;padding:4px 8px;border-radius:6px;border:none;color:#fff;font-size:12px;cursor:pointer;}
+#distance{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;font-size:16px;font-weight:bold;color:#ffcc00;text-shadow:0 0 4px #000;}
+#level{position:fixed;top:30px;left:50%;transform:translateX(-50%);z-index:9999;font-size:14px;color:#fff;text-shadow:0 0 4px #000;}
+.bossWarn{animation:bossWarning 0.5s infinite;color:#f44!important;}
+
+#resource{position:fixed;top:50px;left:10px;z-index:9999;background:#0008;padding:6px 8px;border-radius:8px;display:flex;gap:8px;font-size:12px;}
+#status{position:fixed;top:50px;right:10px;z-index:9999;background:#0008;padding:6px 8px;border-radius:8px;font-size:12px;line-height:1.4;}
+
+#menu{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.btn{padding:6px 10px;border-radius:8px;border:none;font-size:12px;font-weight:bold;color:#fff;cursor:pointer;}
+.btn:disabled{background:#444!important;color:#888;}
+.btn-up{background:#26a;}
+.btn-skill{background:#a26;}
+.btn-skin{background:#62a;}
+.btn-quest{background:#a62;}
+
+.panel{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:100000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+.panel.show{display:flex;}
+.pContent{background:#1a1a2e;border:2px solid #fc0;border-radius:12px;padding:20px;width:90%;max-width:400px;line-height:1.6;}
+.pClose{margin-top:16px;padding:8px 20px;background:#f44;color:#fff;border:none;border-radius:8px;cursor:pointer;}
+
+#game{width:100vw;height:100vh;position:relative;overflow:hidden;background:linear-gradient(to bottom, #2d3f4a, #1a2a3a);transition:background 1.5s ease;}
+.bg{position:absolute;width:100%;height:300%;top:0;left:0;background-image:linear-gradient(transparent 50%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.03) 100%);background-size:100% 40px;animation:scroll 8s linear infinite;}
+@keyframes scroll{0%{transform:translateY(0);}100%{transform:translateY(-40px);}}
+
+#truck{width:80px;height:100px;position:absolute;z-index:10;left:calc(50% - 40px);bottom:120px;font-size:70px;text-align:center;transition:all 0.2s;}
+.truck-shield{animation:shieldPulse 1s infinite;}
+.truck-boost{animation:boostPulse 1s infinite;}
+.truck-rage{animation:ragePulse 1s infinite;}
+.truck-hurt{animation:truckHurt 0.3s;}
+
+.bullet{width:6px;height:12px;background:#ff0;border-radius:3px;position:absolute;z-index:5;box-shadow:0 0 6px #ff0;}
+.enemy{width:60px;height:60px;font-size:40px;text-align:center;position:absolute;z-index:8;}
+.elite{width:80px;height:80px;font-size:50px;text-align:center;position:absolute;z-index:8;background:#6444;border-radius:12px;color:#fc0;}
+.enemy-hit,.elite-hit{animation:hit 0.2s;}
+.boss{width:130px;height:130px;font-size:90px;text-align:center;position:absolute;z-index:9;background:#f448;border-radius:24px;color:#fff;}
+.resource,.item{width:50px;height:50px;font-size:32px;text-align:center;position:absolute;z-index:7;cursor:pointer;}
+.float{position:absolute;z-index:20;color:#ff0;font-size:14px;font-weight:bold;animation:float 0.6s forwards;pointer-events:none;}
+
+#deadPanel{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:200000;display:none;flex-direction:column;align-items:center;justify-content:center;}
+#reviveBtn{padding:12px 24px;background:#fc0;color:#000;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;}
+</style>
+</head>
+
+<body>
+<div id="topUI">
+  <div id="version">v1.1 无卡死稳定版</div>
+  <button id="guideBtn" onclick="openGuide()">📜 说明</button>
+</div>
+<div id="distance">🚗 0 公里</div>
+<div id="level">🟢 第 1 关 · 平原</div>
+<div id="resource">
+  <div>🍎<span id="a">0</span></div>
+  <div>🪵<span id="w">0</span></div>
+  <div>🪨<span id="s">0</span></div>
+  <div>⭐<span id="st">0</span></div>
+</div>
+<div id="status">
+  <div>❤️<span id="hp">100</span>/<span id="mhp">100</span></div>
+  <div>🚀<span id="sp">1</span></div>
+  <div>⚔️<span id="atk">5</span></div>
+  <div>📈<span id="asp">800</span>ms</div>
+</div>
+
+<div id="menu">
+  <button class="btn btn-up" onclick="upTruck()">升级卡车</button>
+  <button class="btn btn-up" onclick="upGun()">升级武器</button>
+  <button class="btn btn-skill" onclick="skill(1)">🛡️护盾</button>
+  <button class="btn btn-skill" onclick="skill(2)">🚀冲刺</button>
+  <button class="btn btn-skill" onclick="skill(3)">🔥狂暴</button>
+  <button class="btn btn-skin" onclick="openSkin()">🎨皮肤</button>
+  <button class="btn btn-quest" onclick="openQuest()">📜任务</button>
+</div>
+
+<div class="panel" id="guide">
+  <div class="pContent">
+    <h3>📜 游戏说明</h3>
+    <p>• 卡车自动前进，子弹自动追踪最近敌人</p>
+    <p>• 敌人到达卡车行就会造成伤害</p>
+    <p>• 点击资源收集，用于升级属性</p>
+    <p>• 每15公里出现BOSS，击败后解锁下一关</p>
+    <p>• 地图自动切换：平原→沙漠→城市→雪地</p>
+    <p>• 技能可保命、加速、双倍伤害</p>
+    <p>• 完成任务领取奖励，解锁皮肤</p>
+    <p>• 死亡可免费复活，永久存档</p>
+  </div>
+  <button class="pClose" onclick="closePanel()">关闭</button>
+</div>
+
+<div class="panel" id="skin">
+  <div class="pContent">
+    <h3>🎨 卡车皮肤</h3>
+    <p onclick="setSkin(0)" style="cursor:pointer">🚛 默认卡车</p>
+    <p onclick="setSkin(1)" style="cursor:pointer">🚜 农用卡车</p>
+    <p onclick="setSkin(2)" style="cursor:pointer">🚌 巴士战车</p>
+    <p onclick="setSkin(3)" style="cursor:pointer">🚚 装甲卡车</p>
+    <p onclick="setSkin(4)" style="cursor:pointer">🏎️ 极速跑车</p>
+  </div>
+  <button class="pClose" onclick="closePanel()">关闭</button>
+</div>
+
+<div class="panel" id="quest">
+  <div class="pContent">
+    <h3>📜 任务成就</h3>
+    <div id="qList"></div>
+  </div>
+  <button class="pClose" onclick="closePanel()">关闭</button>
+</div>
+
+<div id="deadPanel">
+  <h2>💀 卡车损毁</h2>
+  <p style="margin:10px 0;">行驶里程：<span id="deadDist">0</span> 公里</p>
+  <button id="reviveBtn" onclick="revive()">✅ 免费复活</button>
+  <br>
+  <button onclick="restart()">🔄 重新开始</button>
+</div>
+
+<div id="game">
+  <div class="bg"></div>
+  <div id="truck">🚛</div>
+</div>
+
+<script>
+// 清空坏存档（解决卡死核心）
+localStorage.removeItem('madmax_final');
+
+const game = document.getElementById('game');
+const truck = document.getElementById('truck');
+const skins = ['🚛','🚜','🚌','🚚','🏎️'];
+const themes = [
+  {bg:'#2d3f4f,#1a2a3a',name:'平原'},
+  {bg:'#e9b86f,#c78b35',name:'沙漠'},
+  {bg:'#8c8c8e,#5c5c6e',name:'城市'},
+  {bg:'#e0f0ff,#b8d8ff',name:'雪地'}
+];
+
+// 全新干净数据
+let data = {
+  dist:0, px:0, hp:100, mhp:100, sp:1, atk:5, asp:800,
+  a:0, w:0, s:0, st:0, lvl:1, boss:false, theme:0, skin:0,
+  shield:0, boost:0, rage:0,
+  quest:[0,0,0], reward:[0,0,0],
+  bullets:[], enemies:[], res:[], items:[],
+  shootTimer:null, dead:false, lastTime:0,
+  spawnCount:0 // 每公里刷怪计数
+};
+
+// 工具
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function save(){}
+function openGuide(){document.getElementById('guide').classList.add('show');}
+function openSkin(){document.getElementById('skin').classList.add('show');}
+function openQuest(){renderQuest();document.getElementById('quest').classList.add('show');}
+function closePanel(){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));}
+function setSkin(id){data.skin=id;truck.textContent=skins[id];closePanel();}
+function hurtTruck(){truck.classList.add('truck-hurt');setTimeout(()=>truck.classList.remove('truck-hurt'),300);}
+
+function float(txt,x,y){
+  const f=document.createElement('div');f.className='float';f.textContent=txt;
+  f.style.left=x+'px';f.style.top=y+'px';game.appendChild(f);setTimeout(()=>f.remove(),600);
+}
+
+function updateTheme(){
+  const t=themes[data.theme%4];
+  game.style.background=`linear-gradient(to bottom, ${t.bg.split(',')[0]}, ${t.bg.split(',')[1]})`;
+  const el=document.getElementById('level');
+  el.textContent=`🟢 第 ${data.lvl} 关 · ${t.name}`;
+  el.className=data.boss?'bossWarn':'';
+}
+
+function getNearest(){
+  if(data.enemies.length===0)return null;
+  let near=null,min=9999,ty=truck.offsetTop;
+  data.enemies.forEach(e=>{const d=Math.abs(e.offsetTop-ty);if(d<min){min=d;near=e;}});
+  return near;
+}
+
+function shoot(){
+  if(data.dead)return;
+  const tar=getNearest();if(!tar)return;
+  const tx=truck.offsetLeft+40,ty=truck.offsetTop-10;
+  const b=document.createElement('div');b.className='bullet';
+  b.style.left=tx+'px';b.style.top=ty+'px';b.tarX=tar.offsetLeft+30;
+  game.appendChild(b);data.bullets.push(b);
+}
+
+// 生成单只敌人
+function spawnOneEnemy(){
+  if(data.dead||data.boss)return;
+  if(rand(1,100)<=20){
+    const e=document.createElement('div');e.className='elite';e.textContent=['👿','🦂','🦑','🐉'][rand(0,3)];
+    e.style.left=rand(50,window.innerWidth-130)+'px';e.style.top='-90px';e.hp=data.lvl*8+25;
+    game.appendChild(e);data.enemies.push(e);
+  }else{
+    const e=document.createElement('div');e.className='enemy';e.textContent=['👹','👺','🐗','🐻','🐺'][rand(0,4)];
+    e.style.left=rand(50,window.innerWidth-110)+'px';e.style.top='-80px';e.hp=data.lvl*5+15;
+    game.appendChild(e);data.enemies.push(e);
+  }
+}
+
+function spawnBoss(){
+  data.boss=true;
+  const b=document.createElement('div');b.className='boss';b.textContent='👹';
+  b.style.left=window.innerWidth/2-65+'px';b.style.top='-150px';b.hp=data.lvl*60+150;
+  game.appendChild(b);data.enemies.push(b);
+  float('⚠️ BOSS出现!',window.innerWidth/2-50,100);
+  updateTheme();
+}
+
+function spawnRes(){
+  if(data.dead)return;
+  const r=document.createElement('div');r.className='resource';
+  const list=[{e:'🍎',t:'a'},{e:'🪵',t:'w'},{e:'🪨',t:'s'}];
+  const sel=list[rand(0,2)];r.textContent=sel.e;
+  r.style.left=rand(40,window.innerWidth-90)+'px';r.style.top='-70px';
+  r.t=sel.t;r.cnt=rand(2,5);
+  r.onclick=()=>{if(r.cnt<=0)return;r.cnt--;data[sel.t]++;float('+'+sel.e,r.offsetLeft+10,r.offsetTop);if(r.cnt<=0){r.remove();data.res=data.res.filter(i=>i!==r);}updateUI();}
+  game.appendChild(r);data.res.push(r);
+  setTimeout(spawnRes,rand(1500,3000));
+}
+
+function spawnItem(){
+  if(data.dead)return;
+  const i=document.createElement('div');i.className='item';
+  const items=['❤️','⚡','🛡️','⭐'];i.textContent=items[rand(0,3)];
+  i.style.left=rand(50,window.innerWidth-90)+'px';i.style.top='-70px';
+  i.onclick=()=>{
+    if(i.textContent=='❤️')data.hp=Math.min(data.mhp,data.hp+30);
+    if(i.textContent=='⚡'){data.asp=Math.max(200,data.asp-100);restartShoot();}
+    if(i.textContent=='🛡️')data.shield=600;
+    if(i.textContent=='⭐')data.st+=5;
+    float(i.textContent,i.offsetLeft,i.offsetTop);i.remove();data.items=data.items.filter(x=>x!==i);updateUI();
+  }
+  game.appendChild(i);data.items.push(i);
+  setTimeout(spawnItem,rand(8000,16000));
+}
+
+// UI
+function updateUI(){
+  document.getElementById('a').textContent=data.a;
+  document.getElementById('w').textContent=data.w;
+  document.getElementById('s').textContent=data.s;
+  document.getElementById('st').textContent=data.st;
+  document.getElementById('hp').textContent=Math.max(0,Math.floor(data.hp));
+  document.getElementById('mhp').textContent=data.mhp;
+  document.getElementById('sp').textContent=data.sp.toFixed(1);
+  document.getElementById('atk').textContent=data.atk;
+  document.getElementById('asp').textContent=data.asp;
+  document.getElementById('distance').textContent=`🚗 ${data.dist} 公里`;
+  truck.textContent=skins[data.skin];
+  truck.className='';
+  if(data.shield>0)truck.classList.add('truck-shield');
+  if(data.boost>0)truck.classList.add('truck-boost');
+  if(data.rage>0)truck.classList.add('truck-rage');
+}
+
+function renderQuest(){
+  const el=document.getElementById('qList');
+  el.innerHTML=`
+    <p>行驶10公里 (${data.quest[0]}/10) ${data.reward[0]?'✅已领':''}</p>
+    <p>击败30敌人 (${data.quest[1]}/30) ${data.reward[1]?'✅已领':''}</p>
+    <p>收集50资源 (${data.quest[2]}/50) ${data.reward[2]?'✅已领':''}</p>
+    <br>
+    <button onclick="claim(0)">领奖励1</button>
+    <button onclick="claim(1)">领奖励2</button>
+    <button onclick="claim(2)">领奖励3</button>
+  `;
+}
+
+function claim(id){
+  if(data.reward[id])return;
+  let ok=false;
+  if(id==0&&data.quest[0]>=10){ok=true;data.st+=10;}
+  if(id==1&&data.quest[1]>=30){ok=true;data.st+=20;}
+  if(id==2&&data.quest[2]>=50){ok=true;data.st+=30;}
+  if(ok){data.reward[id]=1;renderQuest();updateUI();}
+}
+
+// 升级
+function upTruck(){if(data.st<10)return;data.st-=10;data.sp+=0.2;data.mhp+=20;data.hp=data.mhp;updateUI();float('卡车升级!',window.innerWidth/2-40,100);}
+function upGun(){if(data.st<10)return;data.st-=10;data.atk+=3;data.asp=Math.max(200,data.asp-70);restartShoot();updateUI();float('武器升级!',window.innerWidth/2-40,100);}
+function restartShoot(){clearInterval(data.shootTimer);data.shootTimer=setInterval(shoot,data.asp);}
+function skill(id){if(id==1)data.shield=600;if(id==2)data.boost=300;if(id==3)data.rage=300;float(['🛡️护盾','🚀冲刺','🔥狂暴'][id-1],window.innerWidth/2-40,100);}
+
+// 死亡
+function gameOver(){data.dead=true;document.getElementById('deadDist').textContent=data.dist;document.getElementById('deadPanel').style.display='flex';}
+function revive(){data.dead=false;data.hp=data.mhp/2;document.getElementById('deadPanel').style.display='none';}
+function restart(){localStorage.removeItem('madmax_final');location.reload();}
+
+// 主循环（10 像素/秒，子弹速度不变）
+function loop(timestamp){
+  if(data.dead)return;
+  if(!data.lastTime)data.lastTime=timestamp;
+  const delta=Math.min((timestamp-data.lastTime)/1000,0.05);
+  data.lastTime=timestamp;
+
+  const MOVE_SPEED=10;
+  const move=MOVE_SPEED*delta;
+
+  // 里程
+  const lastDist = data.dist;
+  data.px+=move;
+  if(data.px>=100){
+    data.dist+=Math.floor(data.px/100);
+    data.px%=100;
+    data.quest[0]++;
+    
+    // 每公里刷 N 只怪（初始1只，每关+1）
+    if(data.dist > lastDist && !data.boss){
+      const num = Math.max(1, data.lvl);
+      for(let i=0; i<num; i++){
+        setTimeout(spawnOneEnemy, i*300);
+      }
+    }
+
+    if(data.dist%15===0&&data.dist!=0&&!data.boss&&data.enemies.length===0){
+      data.lvl++;data.theme++;updateTheme();spawnBoss();
+    }
+  }
+
+  // 技能
+  if(data.shield>0)data.shield-=delta*60;
+  if(data.boost>0)data.boost-=delta*60;
+  if(data.rage>0)data.rage-=delta*60;
+
+  // 子弹 —— 恢复原速度
+  data.bullets.forEach((b,i)=>{
+    let x=parseFloat(b.style.left),y=parseFloat(b.style.top);
+    y-=300*delta;
+    if(b.tarX!==undefined){const dx=b.tarX-x;x+=dx*0.2;b.style.left=x+'px';}
+    b.style.top=y+'px';if(y<-30){b.remove();data.bullets.splice(i,1);}
+  });
+
+  // 敌人
+  data.enemies.forEach((e,i)=>{
+    let y=parseFloat(e.style.top)||0;y+=move;e.style.top=y+'px';
+
+    data.bullets.forEach((b,j)=>{
+      const bx=b.offsetLeft,by=b.offsetTop,ex=e.offsetLeft,ey=e.offsetTop;
+      const w=e.classList.contains('boss')?130:e.classList.contains('elite')?80:60;
+      if(bx>ex&&bx<ex+w&&by>ey&&by<ey+w){
+        const dmg=data.rage>0?data.atk*2:data.atk;
+        e.hp-=dmg;e.classList.add(e.classList.contains('elite')?'elite-hit':'enemy-hit');
+        setTimeout(()=>e.classList.remove(e.classList.contains('elite')?'elite-hit':'enemy-hit'),200);
+        float('-'+dmg,ex+20,ey);b.remove();data.bullets.splice(j,1);
+        if(e.hp<=0){
+          if(e.classList.contains('boss')){float('🎉 BOSS击败!',window.innerWidth/2-50,120);data.st+=30;data.boss=false;updateTheme();}
+          else data.quest[1]++;
+          e.remove();data.enemies.splice(i,1);
+        }
+      }
+    });
+
+    const truckY=truck.offsetTop;
+    if(y>=truckY-40&&y<=truckY+40){
+      if(data.shield<=0){
+        let dmg=e.classList.contains('elite')?18:10;
+        data.hp-=dmg;hurtTruck();float('💔 -'+dmg,truck.offsetLeft+20,truck.offsetTop-20);
+      }
+      e.remove();data.enemies.splice(i,1);
+      if(data.hp<=0)gameOver();
+    }
+  });
+
+  // 资源道具
+  [...data.res,...data.items].forEach(obj=>{
+    let y=parseFloat(obj.style.top)||0;y+=move;obj.style.top=y+'px';
+    if(y>window.innerHeight)obj.remove();
+  });
+
+  updateUI();
+  requestAnimationFrame(loop);
+}
+
+// 启动
+function start(){
+  updateTheme();updateUI();restartShoot();
+  spawnRes();spawnItem();
+  requestAnimationFrame(loop);
+}
+start();
+</script>
+</body>
+</html>
