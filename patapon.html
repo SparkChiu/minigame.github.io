@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>猪突对对碰 v0.0.9 性能终极版 · 流畅优化</title>
+<title>猪突对对碰 v0.0.10 性能终极版 · 流畅优化</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#0a0a12;color:#fff;font-family:Arial,sans-serif;overflow:hidden;user-select:none;}
@@ -20,6 +20,35 @@ body{background:#0a0a12;color:#fff;font-family:Arial,sans-serif;overflow:hidden;
   position:fixed;top:10px;left:90px;z-index:9999;
   color:#00ff84;font-size:16px;font-weight:bold;
   background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:8px;
+}
+
+/* 游戏说明按钮 */
+#guideBtn{
+  position:fixed;top:10px;left:170px;z-index:9999;
+  color:#ffd000;font-size:16px;font-weight:bold;
+  background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:8px;
+  border:1px solid #ffd000;cursor:pointer;
+}
+
+/* 游戏说明弹窗 */
+#guidePanel{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  background:rgba(0,0,0,0.95);z-index:20000;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;
+}
+.guide-content{
+  background:#1a1a2e;border:2px solid #ffd000;border-radius:16px;
+  padding:24px;max-width:400px;width:90%;
+  line-height:1.6;font-size:16px;
+}
+.guide-content h3{
+  color:#ffd000;text-align:center;margin-bottom:12px;
+}
+.guide-content p{margin:6px 0;}
+#closeGuide{
+  margin-top:16px;padding:8px 20px;background:#00ff84;color:#000;
+  border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;
 }
 
 #fps{
@@ -209,11 +238,26 @@ body{background:#0a0a12;color:#fff;font-family:Arial,sans-serif;overflow:hidden;
 
 <body>
 <a id="backBtn" href="index.html">← 返回</a>
-<div id="version">v0.0.9</div>
+<div id="version">v0.0.10</div>
+<button id="guideBtn" onclick="openGuide()">📜 游戏说明</button>
 <div id="fps">FPS: --</div>
 <button id="rankBtn" onclick="openRank()">🏆 排行榜</button>
 <div id="levelBar">关卡：1-1</div>
 <div id="goldBar">💰 金币: 0</div>
+
+<!-- 游戏说明弹窗 -->
+<div id="guidePanel">
+  <div class="guide-content">
+    <h3>📜 游戏规则说明</h3>
+    <p>1. 点击下方角色进行攻击，击败敌人可获得金币</p>
+    <p>2. 敌人死亡后可尝试捕获，加入你的队伍</p>
+    <p>3. 金币可用于角色升级、复活，提升战斗力</p>
+    <p>4. 角色死亡后掩埋，可返还100%升级花费金币</p>
+    <p>5. 通关关卡、挑战BOSS，冲击更高关卡排名</p>
+    <p>6. 每关5波敌人，第5波为强力BOSS</p>
+  </div>
+  <button id="closeGuide" onclick="closeGuide()">我知道了</button>
+</div>
 
 <div id="captureTip">
   <div id="diceRoll">?</div>
@@ -221,7 +265,7 @@ body{background:#0a0a12;color:#fff;font-family:Arial,sans-serif;overflow:hidden;
 </div>
 
 <div id="rankPanel">
-  <h2>💰 金币排行榜</h2>
+  <h2>🏆 最高关卡排行榜</h2>
   <div id="rankList"></div>
   <button id="closeRank" onclick="closeRank()">关闭</button>
 </div>
@@ -256,15 +300,26 @@ const battleZone = document.getElementById('battleZone');
 const rankList = document.getElementById('rankList');
 const rankPanel = document.getElementById('rankPanel');
 const fpsEl = document.getElementById('fps');
+const guidePanel = document.getElementById('guidePanel');
 
 // ==========================
-// 初始队伍（增加 lastCost 记录上一级费用）
+// 游戏说明弹窗控制
+// ==========================
+function openGuide(){
+  guidePanel.style.display = 'flex';
+}
+function closeGuide(){
+  guidePanel.style.display = 'none';
+}
+
+// ==========================
+// 初始队伍（增加 lastCost + reviveCount + totalUpgradeCost）
 // ==========================
 let playerTeam = [
-  {emoji:'🐹', atk:1, hp:3, maxHp:3, level:1, lastCost:0},
-  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1, lastCost:0},
-  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1, lastCost:0},
-  {emoji:'🐹', atk:5, hp:9, maxHp:9, level:1, lastCost:0},
+  {emoji:'🐹', atk:1, hp:3, maxHp:3, level:1, lastCost:0, totalUpgradeCost:0, reviveCount:0},
+  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1, lastCost:0, totalUpgradeCost:0, reviveCount:0},
+  {emoji:'🐹', atk:2, hp:6, maxHp:6, level:1, lastCost:0, totalUpgradeCost:0, reviveCount:0},
+  {emoji:'🐹', atk:5, hp:9, maxHp:9, level:1, lastCost:0, totalUpgradeCost:0, reviveCount:0},
 ];
 
 let levelData = {
@@ -368,7 +423,9 @@ function tryCaptureEnemy(enemyUnit) {
               hp: enemyUnit.maxHp,
               maxHp: enemyUnit.maxHp,
               level: 1,
-              lastCost: 0
+              lastCost: 0,
+              totalUpgradeCost:0,
+              reviveCount:0
             });
             captureText.innerHTML = `🎯 ${chance}% 概率<br/>捕获成功！`;
           } else {
@@ -413,24 +470,55 @@ function showFloat(dmg, el) {
 }
 
 // ==========================
-// 排行榜
+// ✅ 排行榜：按最高关卡排名
 // ==========================
 function saveRank() {
   let ranks = JSON.parse(localStorage.getItem('pigRank')) || [];
-  ranks.push(gold);
-  ranks = [...new Set(ranks)].sort((a, b) => b - a).slice(0, 10);
+  
+  const current = {
+    level: levelData.currentLevel,
+    gold: gold
+  };
+
+  ranks.push(current);
+  
+  // 去重
+  let unique = [];
+  let keys = new Set();
+  ranks.forEach(item => {
+    const key = `${item.level}-${item.gold}`;
+    if(!keys.has(key)){
+      keys.add(key);
+      unique.push(item);
+    }
+  });
+
+  // 排序：关卡高 → 金币高
+  unique.sort((a,b)=>{
+    if(b.level !== a.level) return b.level - a.level;
+    return b.gold - a.gold;
+  });
+
+  ranks = unique.slice(0,10);
   localStorage.setItem('pigRank', JSON.stringify(ranks));
 }
+
 function openRank() {
   saveRank();
   rankList.innerHTML = '';
-  const ranks = JSON.parse(localStorage.getItem('pigRank')) || [];
-  ranks.forEach((g, i) => {
-    let d = document.createElement('div');
-    d.className = 'rank-item';
-    d.innerHTML = `第${i+1}名：💰${g} 金币`;
-    rankList.appendChild(d);
+  let ranks = JSON.parse(localStorage.getItem('pigRank')) || [];
+  
+  ranks.forEach((item,i)=>{
+    const div = document.createElement('div');
+    div.className='rank-item';
+    div.innerHTML = `
+      第${i+1}名<br/>
+      最高关卡：${item.level} 关<br/>
+      总金币：💰${item.gold}
+    `;
+    rankList.appendChild(div);
   });
+  
   rankPanel.style.display = 'flex';
 }
 function closeRank() { rankPanel.style.display = 'none'; }
@@ -476,15 +564,22 @@ function renderTeams() {
     div.className = 'creature ' + (alive ? 'alive' : 'dead');
     let btns = '';
     const cost = getUpgradeCost(unit);
+    
     if (alive) {
       btns = `
         <button class="btn up" onclick="upgrade(${idx});event.stopPropagation();" ${gold < cost ? 'disabled' : ''}>升级</button>
         <div style="font-size:11px;">💰${cost}</div>
       `;
     } else {
+      // ✅ 复活费用：每3次×2
+      let mul = 1;
+      for(let i=0;i<Math.floor(unit.reviveCount/3);i++) mul *=2;
+      const reviveCost = unit.maxHp * mul;
+      const canRevive = gold >= reviveCost;
+      
       btns = `
-        <button class="btn rev" onclick="revive(${idx});event.stopPropagation();" ${gold < unit.maxHp ? 'disabled' : ''}>复活</button>
-        <div style="font-size:11px;">💰${unit.maxHp}</div>
+        <button class="btn rev" onclick="revive(${idx});event.stopPropagation();" ${!canRevive ? 'disabled' : ''}>复活</button>
+        <div style="font-size:11px;color:#ffd000;margin-top:2px;">💰${reviveCost}</div>
         <button class="btn bur" onclick="bury(${idx});event.stopPropagation();">掩埋</button>
       `;
     }
@@ -628,7 +723,7 @@ function spawnCurrentMonster() {
 }
 
 // ==========================
-// ✅ 升级：属性+20% + 记录费用
+// ✅ 升级：属性+20% + 记录总花费
 // ==========================
 function upgrade(index) {
   const u = playerTeam[index];
@@ -640,23 +735,42 @@ function upgrade(index) {
     u.atk = Math.floor(u.atk * 1.2);
     u.maxHp = Math.floor(u.maxHp * 1.2);
     u.hp = u.maxHp;
-    u.lastCost = cost; // 记录本次费用
+    u.lastCost = cost;
+    u.totalUpgradeCost = (u.totalUpgradeCost || 0) + cost; // 累计升级花费
     u.level += 1;
     showLevelUpText(card);
     renderAll();
   }
 }
 
+// ==========================
+// ✅ 复活：每3次费用×2
+// ==========================
 function revive(index) {
   const u = playerTeam[index];
-  if (gold >= u.maxHp) {
-    gold -= u.maxHp; u.hp = u.maxHp; renderAll();
+  let mul = 1;
+  for(let i=0;i<Math.floor(u.reviveCount/3);i++) mul *=2;
+  const cost = u.maxHp * mul;
+  
+  if (gold >= cost) {
+    gold -= cost;
+    u.hp = u.maxHp;
+    u.reviveCount +=1;
+    renderAll();
   }
 }
 
+// ==========================
+// ✅ 掩埋：返还 1金币 + 全部升级花费
+// ==========================
 function bury(index) {
+  const u = playerTeam[index];
+  const refund = 1 + (u.totalUpgradeCost || 0); // 返还所有升级花费
+  gold += refund;
+  
   if (currentBattleUnitIndex === index) currentBattleUnitIndex = -1;
-  playerTeam.splice(index, 1); gold += 1; renderAll();
+  playerTeam.splice(index, 1);
+  renderAll();
 }
 
 // 启动
